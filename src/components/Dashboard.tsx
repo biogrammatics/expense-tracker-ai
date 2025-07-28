@@ -1,15 +1,17 @@
 'use client';
 
-import { useMemo } from 'react';
-import { DollarSign, TrendingUp, Calendar, PieChart } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { DollarSign, TrendingUp, Calendar, PieChart, Download } from 'lucide-react';
 import { Expense } from '@/types/expense';
 import { calculateExpenseSummary, formatCurrency } from '@/lib/utils';
+import AdvancedExportModal from './AdvancedExportModal';
 
 interface DashboardProps {
   expenses: Expense[];
 }
 
 export default function Dashboard({ expenses }: DashboardProps) {
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const summary = useMemo(() => calculateExpenseSummary(expenses), [expenses]);
 
   const recentExpenses = useMemo(() => {
@@ -54,7 +56,16 @@ export default function Dashboard({ expenses }: DashboardProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Dashboard</h2>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-900">Dashboard</h2>
+          <button
+            onClick={() => setIsExportModalOpen(true)}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Advanced Export
+          </button>
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
@@ -172,6 +183,12 @@ export default function Dashboard({ expenses }: DashboardProps) {
           </div>
         </div>
       )}
+
+      <AdvancedExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        expenses={expenses}
+      />
     </div>
   );
 }
