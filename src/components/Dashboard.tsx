@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { TrendingUp, DollarSign, Calendar, PieChart, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, DollarSign, Calendar, PieChart, ArrowUp, ArrowDown, Download } from 'lucide-react';
 import { PieChart as RechartsPieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Expense } from '@/types/expense';
 import { calculateExpenseSummary, formatCurrency, cn } from '@/lib/utils';
+import { exportExpensesToCSV } from '@/lib/export';
 import { format, parseISO, startOfMonth, subMonths, isWithinInterval } from 'date-fns';
 
 interface DashboardProps {
@@ -74,9 +75,19 @@ export default function Dashboard({ expenses }: DashboardProps) {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
-        <p className="text-gray-600 mt-1">Overview of your expenses and spending patterns</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-600 mt-1">Overview of your expenses and spending patterns</p>
+        </div>
+        <button
+          onClick={() => exportExpensesToCSV(expenses)}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          disabled={expenses.length === 0}
+        >
+          <Download className="h-4 w-4" />
+          Export Data
+        </button>
       </div>
 
       {/* Summary Cards */}
