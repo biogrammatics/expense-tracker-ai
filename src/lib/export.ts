@@ -1,6 +1,6 @@
 import { Expense } from '@/types/expense';
 
-export function exportToCSV(expenses: Expense[]): void {
+export function exportToCSV(expenses: Expense[], filename: string = 'expenses'): void {
   const headers = ['Date', 'Description', 'Category', 'Amount'];
   
   const csvContent = [
@@ -18,8 +18,9 @@ export function exportToCSV(expenses: Expense[]): void {
   
   if (link.download !== undefined) {
     const url = URL.createObjectURL(blob);
+    const finalFilename = filename || `expenses_${new Date().toISOString().split('T')[0]}`;
     link.setAttribute('href', url);
-    link.setAttribute('download', `expenses_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute('download', `${finalFilename}.csv`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
@@ -27,15 +28,16 @@ export function exportToCSV(expenses: Expense[]): void {
   }
 }
 
-export function exportToJSON(expenses: Expense[]): void {
+export function exportToJSON(expenses: Expense[], filename: string = 'expenses'): void {
   const jsonContent = JSON.stringify(expenses, null, 2);
   const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
   const link = document.createElement('a');
   
   if (link.download !== undefined) {
     const url = URL.createObjectURL(blob);
+    const finalFilename = filename || `expenses_${new Date().toISOString().split('T')[0]}`;
     link.setAttribute('href', url);
-    link.setAttribute('download', `expenses_${new Date().toISOString().split('T')[0]}.json`);
+    link.setAttribute('download', `${finalFilename}.json`);
     link.style.visibility = 'hidden';
     document.body.appendChild(link);
     link.click();
