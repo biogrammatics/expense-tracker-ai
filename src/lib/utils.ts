@@ -1,6 +1,6 @@
-import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { Expense, ExpenseCategory, ExpenseSummary } from '@/types/expense';
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { Expense, ExpenseFilters, ExpenseSummary, CategorySummary, ExpenseCategory } from '@/types/expense';
 import { format, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
@@ -14,130 +14,90 @@ export function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
-export function formatDate(dateString: string): string {
-  try {
-    return format(parseISO(dateString), 'MMM dd, yyyy');
-  } catch {
-    return dateString;
-  }
+export function formatDate(date: string): string {
+  return format(parseISO(date), 'MMM dd, yyyy');
 }
 
 export function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
 
-export function calculateExpenseSummary(expenses: Expense[]): ExpenseSummary {
-  const now = new Date();
-  const monthStart = startOfMonth(now);
-  const monthEnd = endOfMonth(now);
-
-  const totalExpenses = expenses.reduce((sum, expense) => sum + expense.amount, 0);
-  
-  const monthlyExpenses = expenses.filter(expense => {
-    try {
-      const expenseDate = parseISO(expense.date);
-      return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
-    } catch {
-      return false;
-    }
-  });
-  
-  const monthlyTotal = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-
-  const categorySummary = expenses.reduce((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
-    return acc;
-  }, {} as Record<ExpenseCategory, number>);
-
-  const topCategories = Object.entries(categorySummary)
-    .map(([category, amount]) => ({
-      category: category as ExpenseCategory,
-      amount,
-      percentage: totalExpenses > 0 ? (amount / totalExpenses) * 100 : 0,
-    }))
-    .sort((a, b) => b.amount - a.amount)
-    .slice(0, 5);
-
-  return {
-    totalExpenses,
-    monthlyTotal,
-    categorySummary,
-    topCategories,
-  };
-}
-
-export function filterExpenses(
-  expenses: Expense[],
-  filters: {
-    category?: ExpenseCategory | 'All';
-    dateFrom?: string;
-    dateTo?: string;
-    searchTerm?: string;
-  }
-): Expense[] {
+export function filterExpenses(expenses: Expense[], filters: ExpenseFilters): Expense[] {
   return expenses.filter(expense => {
-    if (filters.category && filters.category !== 'All' && expense.category !== filters.category) {
+    if (filters.category && expense.category !== filters.category) {
       return false;
-    }
-
-    if (filters.dateFrom) {
-      try {
-        const expenseDate = parseISO(expense.date);
-        const fromDate = parseISO(filters.dateFrom);
-        if (expenseDate < fromDate) return false;
-      } catch {
-        // Invalid date, skip filter
-      }
-    }
-
-    if (filters.dateTo) {
-      try {
-        const expenseDate = parseISO(expense.date);
-        const toDate = parseISO(filters.dateTo);
-        if (expenseDate > toDate) return false;
-      } catch {
-        // Invalid date, skip filter
-      }
     }
 
     if (filters.searchTerm) {
       const searchLower = filters.searchTerm.toLowerCase();
-      const matchesDescription = expense.description.toLowerCase().includes(searchLower);
-      const matchesCategory = expense.category.toLowerCase().includes(searchLower);
-      if (!matchesDescription && !matchesCategory) return false;
+      if (!expense.description.toLowerCase().includes(searchLower) && 
+          !expense.category.toLowerCase().includes(searchLower)) {
+        return false;
+      }
+    }
+
+    if (filters.startDate || filters.endDate) {
+      const expenseDate = parseISO(expense.date);
+      
+      if (filters.startDate && filters.endDate) {
+        const start = parseISO(filters.startDate);
+        const end = parseISO(filters.endDate);
+        
+        if (!isWithinInterval(expenseDate, { start, end })) {
+          return false;
+        }
+      } else if (filters.startDate) {
+        const start = parseISO(filters.startDate);
+        if (expenseDate < start) {
+          return false;
+        }
+      } else if (filters.endDate) {
+        const end = parseISO(filters.endDate);
+        if (expenseDate > end) {
+          return false;
+        }
+      }
     }
 
     return true;
   });
 }
 
-export function exportExpensesToCSV(expenses: Expense[]): string {
-  const headers = ['Date', 'Amount', 'Category', 'Description'];
-  const rows = expenses.map(expense => [
-    formatDate(expense.date),
-    expense.amount.toString(),
-    expense.category,
-    expense.description.replace(/,/g, ';') // Replace commas to avoid CSV issues
-  ]);
-
-  const csvContent = [headers, ...rows]
-    .map(row => row.map(cell => `"${cell}"`).join(','))
-    .join('\n');
-
-  return csvContent;
-}
-
-export function downloadCSV(content: string, filename: string = 'expenses.csv'): void {
-  const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-  const link = document.createElement('a');
+export function calculateExpenseSummary(expenses: Expense[]): ExpenseSummary {
+  const totalSpending = expenses.reduce((sum, expense) => sum + expense.amount, 0);
   
-  if (link.download !== undefined) {
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', filename);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  }
+  const currentMonth = new Date();
+  const monthStart = startOfMonth(currentMonth);
+  const monthEnd = endOfMonth(currentMonth);
+  
+  const monthlyExpenses = expenses.filter(expense => {
+    const expenseDate = parseISO(expense.date);
+    return isWithinInterval(expenseDate, { start: monthStart, end: monthEnd });
+  });
+  
+  const monthlySpending = monthlyExpenses.reduce((sum, expense) => sum + expense.amount, 0);
+  
+  const categoryMap = new Map<string, { total: number; count: number }>();
+  
+  expenses.forEach(expense => {
+    const existing = categoryMap.get(expense.category) || { total: 0, count: 0 };
+    categoryMap.set(expense.category, {
+      total: existing.total + expense.amount,
+      count: existing.count + 1
+    });
+  });
+  
+  const categorySummary: CategorySummary[] = Array.from(categoryMap.entries()).map(([category, data]) => ({
+    category: category as ExpenseCategory,
+    total: data.total,
+    count: data.count,
+    percentage: totalSpending > 0 ? (data.total / totalSpending) * 100 : 0
+  })).sort((a, b) => b.total - a.total);
+  
+  return {
+    totalSpending,
+    monthlySpending,
+    categorySummary,
+    expenseCount: expenses.length
+  };
 }

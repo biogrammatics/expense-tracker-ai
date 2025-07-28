@@ -1,48 +1,67 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Save, DollarSign, Calendar, Tag, FileText } from 'lucide-react';
-import { Expense, ExpenseCategory, ExpenseFormData } from '@/types/expense';
+import { X, Calendar, DollarSign, Tag, FileText } from 'lucide-react';
+import { Expense, ExpenseCategory, EXPENSE_CATEGORIES } from '@/types/expense';
 
 interface EditExpenseModalProps {
-  expense: Expense;
-  onUpdate: (expense: Expense) => void;
+  expense: Expense | null;
+  isOpen: boolean;
   onClose: () => void;
+  onSave: (expense: Expense) => void;
 }
 
-const categories: ExpenseCategory[] = [
-  'Food',
-  'Transportation',
-  'Entertainment',
-  'Shopping',
-  'Bills',
-  'Other'
-];
+interface FormData {
+  date: string;
+  amount: string;
+  category: ExpenseCategory;
+  description: string;
+}
 
-export default function EditExpenseModal({ expense, onUpdate, onClose }: EditExpenseModalProps) {
-  const [formData, setFormData] = useState<ExpenseFormData>({
-    amount: expense.amount.toString(),
-    category: expense.category,
-    description: expense.description,
-    date: expense.date
+interface FormErrors {
+  date?: string;
+  amount?: string;
+  category?: string;
+  description?: string;
+}
+
+export default function EditExpenseModal({ expense, isOpen, onClose, onSave }: EditExpenseModalProps) {
+  const [formData, setFormData] = useState<FormData>({
+    date: '',
+    amount: '',
+    category: 'Other',
+    description: ''
   });
-  
-  const [errors, setErrors] = useState<Partial<ExpenseFormData>>({});
+  const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const validateForm = (): boolean => {
-    const newErrors: Partial<ExpenseFormData> = {};
+  useEffect(() => {
+    if (expense) {
+      setFormData({
+        date: expense.date,
+        amount: expense.amount.toString(),
+        category: expense.category,
+        description: expense.description
+      });
+      setErrors({});
+    }
+  }, [expense]);
 
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      newErrors.amount = 'Please enter a valid amount greater than 0';
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.date) {
+      newErrors.date = 'Date is required';
+    }
+
+    if (!formData.amount) {
+      newErrors.amount = 'Amount is required';
+    } else if (isNaN(parseFloat(formData.amount)) || parseFloat(formData.amount) <= 0) {
+      newErrors.amount = 'Amount must be a positive number';
     }
 
     if (!formData.description.trim()) {
-      newErrors.description = 'Please enter a description';
-    }
-
-    if (!formData.date) {
-      newErrors.date = 'Please select a date';
+      newErrors.description = 'Description is required';
     }
 
     setErrors(newErrors);
@@ -52,23 +71,24 @@ export default function EditExpenseModal({ expense, onUpdate, onClose }: EditExp
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!validateForm()) return;
+    if (!expense || !validateForm()) {
+      return;
+    }
 
     setIsSubmitting(true);
 
     try {
       const updatedExpense: Expense = {
         ...expense,
+        date: formData.date,
         amount: parseFloat(formData.amount),
         category: formData.category,
-        description: formData.description,
-        date: formData.date,
+        description: formData.description.trim(),
         updatedAt: new Date().toISOString()
       };
 
-      onUpdate(updatedExpense);
+      onSave(updatedExpense);
       onClose();
-      
     } catch (error) {
       console.error('Error updating expense:', error);
     } finally {
@@ -76,160 +96,126 @@ export default function EditExpenseModal({ expense, onUpdate, onClose }: EditExp
     }
   };
 
-  const handleInputChange = (field: keyof ExpenseFormData, value: string) => {
+  const handleInputChange = (field: keyof FormData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    
-    // Clear error when user starts typing
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
 
-  // Handle escape key to close modal
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [onClose]);
+  if (!isOpen || !expense) {
+    return null;
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Edit Expense</h2>
-          <button
-            onClick={onClose}
-            className="p-1 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
-          {/* Amount Field */}
-          <div>
-            <label htmlFor="edit-amount" className="block text-sm font-medium text-gray-700 mb-1">
-              <DollarSign className="inline h-4 w-4 mr-1" />
-              Amount
-            </label>
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <span className="text-gray-500 sm:text-sm">$</span>
-              </div>
-              <input
-                type="number"
-                id="edit-amount"
-                step="0.01"
-                min="0"
-                value={formData.amount}
-                onChange={(e) => handleInputChange('amount', e.target.value)}
-                className={`block w-full pl-7 pr-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                  errors.amount ? 'border-red-300' : 'border-gray-300'
-                }`}
-                placeholder="0.00"
-              />
-            </div>
-            {errors.amount && (
-              <p className="mt-1 text-sm text-red-600">{errors.amount}</p>
-            )}
-          </div>
-
-          {/* Category Field */}
-          <div>
-            <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">
-              <Tag className="inline h-4 w-4 mr-1" />
-              Category
-            </label>
-            <select
-              id="edit-category"
-              value={formData.category}
-              onChange={(e) => handleInputChange('category', e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-            >
-              {categories.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Date Field */}
-          <div>
-            <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1">
-              <Calendar className="inline h-4 w-4 mr-1" />
-              Date
-            </label>
-            <input
-              type="date"
-              id="edit-date"
-              value={formData.date}
-              onChange={(e) => handleInputChange('date', e.target.value)}
-              className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                errors.date ? 'border-red-300' : 'border-gray-300'
-              }`}
-            />
-            {errors.date && (
-              <p className="mt-1 text-sm text-red-600">{errors.date}</p>
-            )}
-          </div>
-
-          {/* Description Field */}
-          <div>
-            <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
-              <FileText className="inline h-4 w-4 mr-1" />
-              Description
-            </label>
-            <textarea
-              id="edit-description"
-              rows={3}
-              value={formData.description}
-              onChange={(e) => handleInputChange('description', e.target.value)}
-              className={`block w-full px-3 py-2 border rounded-md shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm ${
-                errors.description ? 'border-red-300' : 'border-gray-300'
-              }`}
-              placeholder="What was this expense for?"
-            />
-            {errors.description && (
-              <p className="mt-1 text-sm text-red-600">{errors.description}</p>
-            )}
-          </div>
-
-          {/* Buttons */}
-          <div className="flex justify-end space-x-3 pt-4">
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-gray-900">Edit Expense</h3>
             <button
-              type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="text-gray-400 hover:text-gray-600 transition-colors"
             >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            >
-              {isSubmitting ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Changes
-                </>
-              )}
+              <X className="h-6 w-6" />
             </button>
           </div>
-        </form>
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
+              <div>
+                <label htmlFor="edit-date" className="block text-sm font-medium text-gray-700 mb-1">
+                  <Calendar className="inline h-4 w-4 mr-1" />
+                  Date
+                </label>
+                <input
+                  type="date"
+                  id="edit-date"
+                  value={formData.date}
+                  onChange={(e) => handleInputChange('date', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.date ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.date && <p className="mt-1 text-sm text-red-600">{errors.date}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="edit-amount" className="block text-sm font-medium text-gray-700 mb-1">
+                  <DollarSign className="inline h-4 w-4 mr-1" />
+                  Amount
+                </label>
+                <input
+                  type="number"
+                  id="edit-amount"
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  value={formData.amount}
+                  onChange={(e) => handleInputChange('amount', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.amount ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.amount && <p className="mt-1 text-sm text-red-600">{errors.amount}</p>}
+              </div>
+
+              <div>
+                <label htmlFor="edit-category" className="block text-sm font-medium text-gray-700 mb-1">
+                  <Tag className="inline h-4 w-4 mr-1" />
+                  Category
+                </label>
+                <select
+                  id="edit-category"
+                  value={formData.category}
+                  onChange={(e) => handleInputChange('category', e.target.value as ExpenseCategory)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  {EXPENSE_CATEGORIES.map(category => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="edit-description" className="block text-sm font-medium text-gray-700 mb-1">
+                  <FileText className="inline h-4 w-4 mr-1" />
+                  Description
+                </label>
+                <input
+                  type="text"
+                  id="edit-description"
+                  placeholder="What was this expense for?"
+                  value={formData.description}
+                  onChange={(e) => handleInputChange('description', e.target.value)}
+                  className={`w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.description ? 'border-red-300' : 'border-gray-300'
+                  }`}
+                />
+                {errors.description && <p className="mt-1 text-sm text-red-600">{errors.description}</p>}
+              </div>
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-gray-500"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );

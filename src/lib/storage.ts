@@ -2,7 +2,7 @@ import { Expense } from '@/types/expense';
 
 const STORAGE_KEY = 'expense-tracker-data';
 
-export const storage = {
+export const storageUtils = {
   getExpenses: (): Expense[] => {
     if (typeof window === 'undefined') return [];
     
@@ -26,29 +26,30 @@ export const storage = {
   },
 
   addExpense: (expense: Expense): void => {
-    const expenses = storage.getExpenses();
+    const expenses = storageUtils.getExpenses();
     expenses.push(expense);
-    storage.saveExpenses(expenses);
+    storageUtils.saveExpenses(expenses);
   },
 
   updateExpense: (updatedExpense: Expense): void => {
-    const expenses = storage.getExpenses();
-    const index = expenses.findIndex(expense => expense.id === updatedExpense.id);
+    const expenses = storageUtils.getExpenses();
+    const index = expenses.findIndex(exp => exp.id === updatedExpense.id);
     
     if (index !== -1) {
       expenses[index] = updatedExpense;
-      storage.saveExpenses(expenses);
+      storageUtils.saveExpenses(expenses);
     }
   },
 
-  deleteExpense: (id: string): void => {
-    const expenses = storage.getExpenses();
-    const filteredExpenses = expenses.filter(expense => expense.id !== id);
-    storage.saveExpenses(filteredExpenses);
+  deleteExpense: (expenseId: string): void => {
+    const expenses = storageUtils.getExpenses();
+    const filteredExpenses = expenses.filter(exp => exp.id !== expenseId);
+    storageUtils.saveExpenses(filteredExpenses);
   },
 
   clearAllExpenses: (): void => {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(STORAGE_KEY);
+    }
   }
 };

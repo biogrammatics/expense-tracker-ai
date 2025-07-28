@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Expense Tracker",
-  description: "Modern expense tracking application built with Next.js",
+  title: "ExpenseTracker - Personal Finance Management",
+  description: "Track your expenses, manage your budget, and gain insights into your spending habits with our modern expense tracking application.",
 };
 
 export default function RootLayout({
